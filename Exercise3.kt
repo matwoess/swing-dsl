@@ -3,14 +3,14 @@ package dsl.swing
 import java.awt.BorderLayout
 import java.awt.Container
 import java.awt.FlowLayout
+import java.awt.GridLayout
 import javax.swing.*
 import kotlin.system.exitProcess
 
 
-fun frame(title: String, x: Int, y: Int, w: Int, h: Int, init: JFrameExt.() -> Unit): JFrameExt {
+fun frame(title: String, x: Int, y: Int, init: JFrameExt.() -> Unit): JFrameExt {
     val frame = JFrameExt(title)
     frame.setLocation(x, y)
-    frame.setSize(w, h)
     frame.init()
     return frame
 }
@@ -30,13 +30,13 @@ class JFrameExt(title: String) : JFrame(title) {
         exitProcess(0)
     }
 
-    fun textField(width: Int): JTextField {
-        return JTextField(width)
+    fun textField(width: Int, init: JTextField.() -> Unit = {}): JTextField {
+        val textField =  JTextField(width)
+        textField.init()
+        return textField
     }
 
-    fun label(text: String): JLabel {
-        return JLabel(text)
-    }
+    fun label(text: String) = JLabel(text)
 
     fun menuBar(init: JMenuBar.() -> Unit) {
         jMenuBar = JMenuBar()
@@ -69,9 +69,8 @@ class JFrameExt(title: String) : JFrame(title) {
         addActionListener { handler() }
     }
 
-    infix fun JTextField.onEvent(action: JTextField.() -> Unit): JTextField {
-        addActionListener { this.action() }
-        return this
+    infix fun JTextField.onEvent(handler: () -> Unit) {
+        addActionListener { handler() }
     }
 
     operator fun JMenuItem.plus(handler: () -> Unit): JMenuItem {
@@ -96,6 +95,18 @@ class JFrameExt(title: String) : JFrame(title) {
         return button
     }
 
+    open class LayoutBuilder : JPanel() {
+        open fun <C : JComponent> comp(jComp: C, init: C.() -> Unit = {}): C {
+            add(jComp)
+            jComp.init()
+            return jComp
+        }
+
+        fun etchedBorder() {
+            this.border = BorderFactory.createEtchedBorder()
+        }
+    }
+
     fun Container.borderLayout(init: BorderLayoutBuilder.() -> Unit): JPanel {
         val borderLayoutBuilder = BorderLayoutBuilder()
         borderLayoutBuilder.layout = BorderLayout()
@@ -104,7 +115,7 @@ class JFrameExt(title: String) : JFrame(title) {
         return borderLayoutBuilder
     }
 
-    class BorderLayoutBuilder : JPanel() {
+    class BorderLayoutBuilder : LayoutBuilder() {
         private fun <C : JComponent> comp(pos: String, jComp: C, init: C.() -> Unit): C {
             add(jComp, pos)
             jComp.init()
@@ -129,11 +140,6 @@ class JFrameExt(title: String) : JFrame(title) {
         fun <C : JComponent> west(jComp: C, init: C.() -> Unit = {}): C {
             return comp(BorderLayout.WEST, jComp, init)
         }
-
-        fun etchedBorder() {
-            this.border = BorderFactory.createEtchedBorder()
-        }
-
     }
 
     fun Container.flowLayout(init: FlowLayoutBuilder.() -> Unit): JPanel {
@@ -144,22 +150,29 @@ class JFrameExt(title: String) : JFrame(title) {
         return flowLayoutBuilder
     }
 
-    class FlowLayoutBuilder : JPanel() {
-        fun <C : JComponent> comp(jComp: C, init: C.() -> Unit = {}): C {
+    class FlowLayoutBuilder : LayoutBuilder() {
+    }
+
+    fun Container.gridLayout(rows: Int, cols: Int, init: GridLayoutBuilder.() -> Unit): JPanel {
+        val gridLayoutBuilder = GridLayoutBuilder(rows, cols)
+        gridLayoutBuilder.layout = GridLayout(rows, cols)
+        add(gridLayoutBuilder)
+        gridLayoutBuilder.init()
+        return gridLayoutBuilder
+    }
+
+    class GridLayoutBuilder(val rows: Int, val cols: Int) : JPanel() {
+        fun <C : JComponent> comp(jComp: C, rows: Int, cols: Int, init: C.() -> Unit = {}): C {
             add(jComp)
             jComp.init()
             return jComp
-        }
-
-        fun etchedBorder() {
-            this.border = BorderFactory.createEtchedBorder()
         }
     }
 }
 
 fun main() {
     val frame =
-        frame("Temperature converter", 200, 200, 300, 200) {
+        frame("Temperature converter", 200, 200) {
 
             exitOnClose()
 
@@ -209,7 +222,7 @@ fun main() {
                     center(flowLayout {
                         etchedBorder()
                         comp(celsius) { text = "0" } onEvent {
-                            val c = text.filter { it.isDigit() || it == '-' }.toInt()
+                            val c = celsius.text.filter { it.isDigit() || it == '-' }.toInt()
                             val f = c * 9 / 5 + 32
                             fahrenh.text = f.toString()
                             refreshMessage()
