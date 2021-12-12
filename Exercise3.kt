@@ -31,7 +31,7 @@ class JFrameExt(title: String) : JFrame(title) {
     }
 
     fun textField(width: Int, init: JTextField.() -> Unit = {}): JTextField {
-        val textField =  JTextField(width)
+        val textField = JTextField(width)
         textField.init()
         return textField
     }
@@ -133,6 +133,7 @@ class JFrameExt(title: String) : JFrame(title) {
         fun <C : JComponent> south(jComp: C, init: C.() -> Unit = {}): C {
             return comp(BorderLayout.SOUTH, jComp, init)
         }
+
         fun <C : JComponent> east(jComp: C, init: C.() -> Unit = {}): C {
             return comp(BorderLayout.EAST, jComp, init)
         }
@@ -161,9 +162,13 @@ class JFrameExt(title: String) : JFrame(title) {
         return gridLayoutBuilder
     }
 
-    class GridLayoutBuilder(val rows: Int, val cols: Int) : JPanel() {
-        fun <C : JComponent> comp(jComp: C, rows: Int, cols: Int, init: C.() -> Unit = {}): C {
-            add(jComp)
+    class GridLayoutBuilder(val rows: Int, val cols: Int) : LayoutBuilder() {
+        fun <C : JComponent> comp(jComp: C, row: Int, col: Int, init: C.() -> Unit = {}): C {
+            if (row >= rows || col >= cols) {
+                println("invalid grid index ($row, $col) for grid of size ($rows, $cols). skipping...")
+                return jComp
+            }
+            add(jComp, row, col)
             jComp.init()
             return jComp
         }
@@ -221,18 +226,43 @@ fun main() {
                     })
                     center(flowLayout {
                         etchedBorder()
-                        comp(celsius) { text = "0" } onEvent {
-                            val c = celsius.text.filter { it.isDigit() || it == '-' }.toInt()
+                        val fromCelsius: (addC: Int) -> Unit = { addC ->
+                            val c = celsius.text.filter { it.isDigit() || it == '-' }.toInt() + addC
                             val f = c * 9 / 5 + 32
+                            celsius.text = c.toString()
                             fahrenh.text = f.toString()
                             refreshMessage()
                         }
-                        comp(JLabel("Celsius = "))
-                        comp(fahrenh) { text = "32" } onEvent {
-                            val f = fahrenh.text.filter { it.isDigit() || it == '-' }.toInt()
+                        val fromFahrenheit: (addF: Int) -> Unit = { addF ->
+                            val f = fahrenh.text.filter { it.isDigit() || it == '-' }.toInt() + addF
                             val c = (f - 32) * 5 / 9
                             celsius.text = c.toString()
+                            fahrenh.text = f.toString()
                             refreshMessage()
+                        }
+
+                        comp(celsius) { text = "0" } onEvent {
+                            fromCelsius(0)
+                        }
+                        gridLayout(1, 2) {
+                            comp(button("-"), 0, 0) onEvent {
+                                fromCelsius(-1)
+                            }
+                            comp(button("+"), 0, 1) onEvent {
+                                fromCelsius(+1)
+                            }
+                        }
+                        comp(JLabel("Celsius   =   "))
+                        comp(fahrenh) { text = "32" } onEvent {
+                            fromFahrenheit(0)
+                        }
+                        gridLayout(1, 2) {
+                            comp(button("-"), 0, 0) onEvent {
+                                fromFahrenheit(-1)
+                            }
+                            comp(button("+"), 0, 1) onEvent {
+                                fromFahrenheit(+1)
+                            }
                         }
                         comp(label("Fahrenheit"))
                     })
